@@ -52,10 +52,16 @@ function usePadEngine({
     gainNode.gain.linearRampToValueAtTime(to, t0 + ms / 1000);
   };
 
-  const playKey = useCallback(async (key) => {
+  
+const playKey = useCallback(async (key) => {
+  // 1) Visually highlight immediately
+  setActiveKey(key);
+
+  try {
     const ctx = ensureCtx();
     const buffer = await loadBuffer(key);
 
+    // New source + gain
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
@@ -75,18 +81,13 @@ function usePadEngine({
 
     fade(gain, 0, 1, fadeMs);
     currentRef.current = { key, src, gain };
-    setActiveKey(key);
-  }, [ensureCtx, loadBuffer, fadeMs]);
+  } catch (err) {
+    console.error(err);
+    // If loading failed, remove the highlight
+    setActiveKey((k) => (k === key ? null : k));
+  }
+}, [ensureCtx, loadBuffer, fadeMs]);
 
-  const stop = useCallback(() => {
-    const old = currentRef.current;
-    if (old.src && old.gain) {
-      fade(old.gain, old.gain.gain.value, 0, fadeMs);
-      setTimeout(() => { try { old.src.stop(); } catch {} }, fadeMs + 60);
-    }
-    currentRef.current = { key: null, src: null, gain: null };
-    setActiveKey(null);
-  }, [fadeMs]);
 
   // Cleanup on unmount
   useEffect(() => {
